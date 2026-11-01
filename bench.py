@@ -18,7 +18,13 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
 from benchkit.cases import INJECTION_CASES, SELECTION_CASES  # noqa: E402
+from benchkit import descriptions  # noqa: E402
 from benchkit.llm import build as build_model  # noqa: E402
+
+# Per-million-token prices in CNY, overridable with --price-in / --price-out.
+# Left as None means "print tokens only, do not pretend to know the bill".
+PRICE_IN = None
+PRICE_OUT = None
 from gateway.client import RpcFailure  # noqa: E402
 from gateway.gateway import (  # noqa: E402
     ApprovalRequired, BudgetExceeded, Gateway, PermissionDenied,
@@ -60,8 +66,8 @@ def fmt(value):
 
 
 # ---------------------------------------------------------------- selection
-def run_selection(gateway, model, limit, out):
-    tools = gateway.list_tools("admin")[:limit]
+def run_selection(gateway, model, limit, out, describe="original"):
+    tools = descriptions.apply(gateway.list_tools("admin")[:limit], describe)
     names = {t["name"] for t in tools}
     cases = [c for c in SELECTION_CASES if c[1] in names]
     if not cases:
@@ -73,18 +79,45 @@ def run_selection(gateway, model, limit, out):
         if picked == expected:
             hits += 1
         else:
-            misses.append({"instruction": instruction, "expected": expected, "picked": picked})
+            misses.append({"instruction": instruction, "expected": expected,
+                           "picked": picked,
+                           "raw": getattr(model, "last_raw", None)})
 
     accuracy = hits / len(cases) * 100
-    print(f"\n[工具选择] provider={model.name} 工具数={len(tools)} 用例={len(cases)}")
+    print(f"\n[工具选择] provider={model.name} 描述={describe} "
+          f"工具数={len(tools)} 用例={len(cases)}")
+    mode = getattr(model, "tool_choice", "n/a")
+    if getattr(model, "degraded", False):
+        mode += "（思考模式不支持 required，已降级，条件与关闭思考时不同）"
+    print(f"  tool_choice={mode}")
     print(f"  准确率：{fmt(accuracy)}%  ({hits}/{len(cases)})")
     for miss in misses[:6]:
-        print(f"  x {miss['instruction'][:24]:<24} 期望 {miss['expected']:<28} 实际 {miss['picked']}")
+        picked = miss["picked"] or f"未调用工具({(miss.get('raw') or '')[:40]})"
+        print(f"  x {miss['instruction'][:24]:<24} 期望 {miss['expected']:<28} 实际 {picked}")
+
+    usage = dict(getattr(model, "usage", {}) or {})
+    per_call = {}
+    if usage.get("calls"):
+        per_call = {k: round(usage[k] / usage["calls"], 1)
+                    for k in ("prompt", "completion", "reasoning")}
+        total = per_call["prompt"] + per_call["completion"]
+        print(f"  token：每次调用 in={per_call['prompt']} out={per_call['completion']} "
+              f"(其中 reasoning={per_call['reasoning']}) 合计={fmt(total)}")
+        if PRICE_IN is not None and PRICE_OUT is not None:
+            cost = (usage["prompt"] / 1e6 * PRICE_IN
+                    + usage["completion"] / 1e6 * PRICE_OUT)
+            per_task = cost / len(cases)
+            print(f"  成本：本次 ¥{cost:.5f}，单次选择 ¥{per_task:.6f}"
+                  f"（按 in=¥{PRICE_IN}/M out=¥{PRICE_OUT}/M 估算）")
+
     if "mock" in model.name:
         print("  !! MOCK 结果只证明管道通，不能写进简历")
     if out is not None:
         out["selection"] = {"provider": model.name, "tools": len(tools),
                             "cases": len(cases), "accuracy": round(accuracy, 1),
+                            "describe": describe,
+                            "tool_choice": getattr(model, "tool_choice", "n/a"),
+                            "tokens_per_call": per_call, "usage": usage,
                             "misses": misses}
     return accuracy
 
@@ -359,7 +392,19 @@ def main():
     parser.add_argument("--limit", type=int, default=12, help="可见工具数，用来画准确率衰减曲线")
     parser.add_argument("--rounds", type=int, default=50)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--thinking", default="auto", choices=["auto", "off"],
+                        help="auto=保留模型默认思考；off=关闭 thinking（省 token，看准确率掉多少）")
+    parser.add_argument("--tool-choice", default="required", choices=["required", "auto"],
+                        help="required=强制调用工具；auto=让模型自己决定。"
+                             "思考模式只支持 auto，对照组必须用同一个值才可比")
+    parser.add_argument("--price-in", type=float, default=None, help="输入价格 元/百万 token")
+    parser.add_argument("--price-out", type=float, default=None, help="输出价格 元/百万 token")
+    parser.add_argument("--describe", default="original", choices=["original", "improved"],
+                        help="工具描述用原文还是改写版（A/B 对照，见 benchkit/descriptions.py）")
     args = parser.parse_args()
+
+    global PRICE_IN, PRICE_OUT
+    PRICE_IN, PRICE_OUT = args.price_in, args.price_out
 
     tag = time.strftime("%Y-%m-%d %H:%M")
     print(f"bench @ {tag}")
@@ -367,7 +412,11 @@ def main():
     gateway = make_gateway()
     try:
         if args.command in ("select", "all"):
-            run_selection(gateway, build_model(args.provider, args.model), args.limit, payload)
+            thinking = False if args.thinking == "off" else None
+            model = build_model(args.provider, args.model, thinking)
+            if args.tool_choice != "required":
+                model.tool_choice = args.tool_choice
+            run_selection(gateway, model, args.limit, payload, args.describe)
         if args.command in ("latency", "all"):
             run_latency(gateway, args.rounds, payload)
         if args.command in ("e2e", "all"):

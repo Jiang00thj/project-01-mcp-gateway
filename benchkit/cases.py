@@ -29,6 +29,56 @@ SELECTION_CASES = [
     ("搜一下 servers 仓库关于 tool 权限的 issue", "github.search_issues"),
     ("把第 42 号 issue 的正文给我看看", "github.get_issue"),
     ("在 issue 下面回一条复现步骤", "github.comment_issue"),
+
+    # ---- 第二批：口语化、错别字、英文混说、否定句、读写边界 ----------------
+    # 加这批的原因是 28 条样本的标准误约 ±9%，1~2 条的差异完全落在噪声里，
+    # 不足以支撑"改描述有效"这种结论。这些用例刻意贴着真实学生说法写。
+    ("王老师的课这学期什么时候上", "campus.search_courses"),
+    ("有哪些 3 学分的专业课", "campus.search_courses"),
+    ("CS 系列的课都有哪些", "campus.search_courses"),
+    ("人工智能导论是哪位老师带的", "campus.search_courses"),
+
+    ("我上学期那门数据库考了多少", "campus.get_grades"),
+    ("查下我的成绩，学号 2021002", "campus.get_grades"),
+    ("我的成绩单能拉一份吗", "campus.get_grades"),
+
+    ("我目前绩点多少", "campus.compute_gpa"),
+    ("算算我这几门课的加权平均", "campus.compute_gpa"),
+    ("保研需要多少绩点，我现在够吗", "campus.compute_gpa"),
+
+    ("明天上午有哪些教室没人用", "campus.room_availability"),
+    ("找个空教室开会", "campus.room_availability"),
+    ("四教 302 下午有课吗", "campus.room_availability"),
+
+    ("把这门课退了吧", "campus.submit_course_change"),
+    ("我想加选一门机器学习", "campus.submit_course_change"),
+    ("CS301 我不上了，帮我取消", "campus.submit_course_change"),
+    ("下学期想换成张老师的班", "campus.submit_course_change"),
+
+    ("馆里有没有《深度学习》", "library.search_books"),
+    ("找几本讲 RAG 的书", "library.search_books"),
+    ("TP311 这类书在哪", "library.search_books"),
+
+    ("帮我把这本书借了", "library.borrow_book"),
+    ("帮我借《动手学深度学习》", "library.borrow_book"),
+    ("这本能借出来吗，帮我办一下", "library.borrow_book"),
+
+    ("最近学校有什么通知", "notice.search_notices"),
+    ("有没有关于期末安排的通知", "notice.search_notices"),
+
+    ("发个通知说明天停电", "notice.publish_notice"),
+    ("帮我拟一条全校公告发出去", "notice.publish_notice"),
+
+    ("这个仓库有没有人反馈过超时问题", "github.search_issues"),
+    ("搜下关于 streamable http 的讨论", "github.search_issues"),
+    ("有没有 open 的 bug 提到缓存", "github.search_issues"),
+
+    ("看看 #128 说了什么", "github.get_issue"),
+    ("打开那个 issue 的详细内容", "github.get_issue"),
+
+    ("在 #42 下面回复说我们已修复", "github.comment_issue"),
+    ("给这个 issue 加一条评论说明复现环境", "github.comment_issue"),
+    ("回复他我们会跟进", "github.comment_issue"),
 ]
 
 # Each case states the expected containment strategy, not just "blocked".
