@@ -1,180 +1,178 @@
-# 项目一 · MCP 工具生态与工具网关
+# 项目一 · MCP 工具网关（Tool Gateway）
 
-> 一句话：手写 MCP 协议层 + 构建多 Server 工具网关，把"工具供给"这件事从调 SDK 变成能讲清协议、能控权限、能审计的工程系统。
+手写 MCP 协议层 + 多 Server 工具网关：把"给 Agent 供工具"从"调个 SDK"做成能讲清协议、能控权限、能审计、能量化的工程系统。
 
-这个仓库是**骨架 + 手册**，不是成品。代码已经跑通（3 个 Server / 9 个 Tool / 16 个测试 / 12 例红队全过），但简历要用的数字、真实数据源、以及向上游的贡献，必须你自己补——那部分才是你的。
-
-| 文件 | 用途 |
-|---|---|
-| **`STEPS.md`** | **27 步操作手册，含命令与预期输出，从这里开始** |
-| `bench.py` | 测数字：工具选择准确率 / P95 延迟 / 红队拦截率 |
-| `demo.py` | 五场景端到端演示 |
-
----
-
-## 0. 先记住一个信息差
-
-MCP 规范在 **2026-07-28** 做了一次大改：
-
-| 改动 | 旧（≤2025-11-25） | 新（2026-07-28） |
-|---|---|---|
-| 会话 | `initialize` 握手 + `notifications/initialized` | **取消握手，完全无状态** |
-| 版本协商 | 握手时谈一次 | **每个请求在 `_meta` 里自带版本** |
-| 能力声明 | 握手时交换 | 每请求携带 `clientCapabilities` |
-| 服务发现 | 无 | **必须实现 `server/discover`** |
-| 结果结构 | 无统一标记 | 所有 result 必须带 `resultType` |
-
-**市面上 90% 的教程还停在旧握手。** 面试时你能说出"7 月改版把会话去掉了，改成每请求带版本，所以我实现的是 dual-era：先用 `server/discover` 探测，收到现代错误才回退到 `initialize`"——这一句话就够面试官记住你。
-
-本仓库的实现就是 dual-era（`mcp_min/server.py`），两条路径都有测试覆盖。
-
----
-
-## 1. 三周日程（每周 25–30 小时）
-
-### 第 1 周 · 协议层：把 SDK 拆开自己写一遍
-
-| 天 | 任务 | 交付 |
-|---|---|---|
-| D1 | 通读 `specification/2026-07-28` 的 Overview / Versioning / stdio / Tools 四页，动手抄一遍消息流 | 一页笔记：请求-响应时序图 |
-| D2 | 实现 `protocol.py`：错误码常量、`_meta` key、newline framing | 能 dump/parse 单条消息 |
-| D3 | 实现 `server.py` 的 dispatch + 版本校验 + `server/discover` | `echo '{"jsonrpc":"2.0",...}' \| python -m servers.campus_server` 有响应 |
-| D4 | 实现 `tools/list`（确定性排序）+ `tools/call`（content / structuredContent / isError） | 手测 3 个工具 |
-| D5 | 实现 `validate.py` 最小 JSON Schema 校验，跑通"参数缺失返回 isError 而不是崩溃" | 单测通过 |
-| D6 | **补 legacy 极**：`initialize` 分支 + 无 `_meta` 时的语义判定 | dual-era 两条路径都能跑 |
-| D7 | 接真实数据源：把 `campus_server.py` 的 SQLite 换成你自己的（图书馆 API / 教务 / 本地知识库） | 5 个真实可用工具 |
-
-**本周验收**
-
-- [ ] `python -m unittest discover -s tests` 全绿
-- [ ] 能手写一条 `tools/call` 的 JSON 并解释每个字段为什么存在
-- [ ] 能回答：为什么日志必须写 stderr 而不是 stdout？（答案：stdout 是协议通道，一行脏输出整条流就废了）
-
-### 第 2 周 · 网关：从"能用"到"敢给别人用"
-
-| 天 | 任务 | 交付 |
-|---|---|---|
-| D8 | 写 `gateway/client.py`：subprocess 管理、请求 id 关联、超时、stderr 捕获 | 能驱动任意 server |
-| D9 | 实现 `server/discover` 探测 + 多 server 聚合 + `server.tool` 命名空间 | 3 个 server 汇成一张工具表 |
-| D10 | 实现风险分级 + principal 策略（allowlist / max_risk） | guest 越权被拒 |
-| D11 | 实现审批门（write / sensitive → `ApprovalRequired`） | 敏感调用必须先拿到人确认 |
-| D12 | 实现审计日志（jsonl，参数只存 hash 不存明文） | 每次调用都有记录 |
-| D13 | 实现重试 + 进程重启 + 结果截断（保头保尾） | 杀掉 server 进程后网关能自愈 |
-| D14 | 实现调用预算（防 Agent 死循环烧钱） | 第 N 次调用被拦并记审计 |
-
-**本周验收**
-
-- [ ] `python demo.py` 五个场景全部通过断言
-- [ ] 能解释：为什么风险表要放在网关侧，而不是信任 Server 的 `annotations`？（规范原文：annotations 视为不可信）
-- [ ] 能解释：截断为什么保留尾部？（尾部常是结论/报错，全砍会让模型自信地编）
-
-### 第 3 周 · 落地 + 量化 + 开源化
-
-| 天 | 任务 | 交付 |
-|---|---|---|
-| D15 | 接 **Claude Desktop / Cursor**：把 `servers/campus_server.py` 写进它的 MCP 配置，真正在对话里用起来 | 一张截图：模型成功调用你的工具 |
-| D16 | 接 **LangGraph**：把网关暴露成 `@tool`，做一次"查课 → 算绩点 → 判断保研资格"的多步任务 | 一段可跑通的 Agent 流程 |
-| D17 | 埋点测指标：工具选择准确率、P95 延迟、注入拦截率 | 一张指标表 |
-| D18 | **红队测试**：构造 20 条恶意输入（工具描述投毒、参数注入 `'; DROP TABLE`、超大返回撑爆上下文） | 拦截率数字 |
-| D19 | 写 README + 架构图 + `Difference from upstream` 章节 | 仓库可公开 |
-| D20 | 写技术博客：为什么 MCP 要去掉会话 | 一篇 3000 字 |
-| D21 | 给上游提 PR（文档修正 / 新增一个社区 server / 补一个测试） | PR 链接 |
-
-**本周验收**
-
-- [ ] 有真实客户端截图（不是自己写脚本自娱自乐）
-- [ ] 指标表至少 4 个数字
-- [ ] 博客已发布，链接可访问
-
----
-
-## 2. 指标怎么测（面试官只认这些）
-
-| 指标 | 测法 | 目标 |
-|---|---|---|
-| 工具选择准确率 | 构造 30 条自然语言指令 → 看模型选对 tool 的比例（先 9 个工具，再加到 20 个看衰减） | ≥ 90%，并给出"工具数 vs 准确率"曲线 |
-| P95 调用延迟 | 单工具 200 次调用，取 P95 | < 300ms（本地） |
-| 注入拦截率 | 20 条恶意用例（参数注入 / 描述投毒 / 路径穿越） | 100% 拦截，误杀率 < 5% |
-| 越权拦截 | 3 类 principal × 9 个工具 = 27 组，预期拒绝数应精确匹配 | 100% |
-| 成本 | 每次任务 token 数 + 工具返回字符数 | 给出截断前后的对比 |
-
-**"工具数 vs 准确率"这条曲线是全场最值钱的**——它证明你理解"工具多了模型会选错"这个真实工程问题，而不是堆功能。
-
----
-
-## 3. Difference from upstream（直接写进 README）
-
-> 本项目的协议层参考 MCP 规范 `2026-07-28` 手写实现，未使用官方 SDK（`modelcontextprotocol/python-sdk`）。差异如下：
->
-> 1. **双时代支持**：官方 SDK 面向单一协议版本；本实现用 `server/discover` 探测 + 错误码回退，同时服务现代客户端与 legacy `initialize` 客户端。
-> 2. **网关层为原创**：多 Server 聚合、命名空间消歧、风险分级、审批门、审计、预算控制均无上游对应实现。
-> 3. **风险表独立于服务端声明**：依据规范"annotations 不可信"的要求，风险等级由网关侧注册表决定。
-> 4. **截断策略**：保留头尾并注入 `[truncated N chars]` 标记，避免模型误判文件已被完整读取。
-> 5. **简化项**：未实现 `subscriptions/listen`、MRTR（`input_required`）、Streamable HTTP 传输与 OAuth；仅覆盖 stdio。
-
-**这一节的作用**：面试官点进仓库 30 秒内就知道哪些是你的。主动划界 = 可信度。
-
----
-
-## 4. 简历怎么写
-
-> **MCP 工具网关｜个人项目｜2026.01–2026.02**
-> 基于 MCP 协议（2026-07-28 修订版）手写 JSON-RPC 协议层，实现同时兼容无状态新版本与 legacy 握手客户端的 dual-era Server；构建多 Server 工具网关，支持 3 类 Server / 9 个 Tool 的动态发现与 `server.tool` 命名空间聚合，实现基于 principal 的三级权限模型与写操作审批门，累计拦截越权调用 __ 次；设计保留头尾的结果截断与调用预算机制，将单任务工具返回 token 降低 __%，死循环导致的无效调用归零；接入 Claude Desktop 与 LangGraph 双客户端，工具选择准确率 __%（9 工具）/ __%（20 工具）。
-
-注意：**每个 `__` 都必须是真实测出来的**。填不出来就先别写这个项目。
-
----
-
-## 5. 面试必答（按被问频率排序）
-
-1. MCP 和 function calling 的区别是什么？为什么需要协议？
-2. 为什么 2026-07 的改版要去掉 `initialize` 会话？无状态带来什么代价？
-3. stdio 传输为什么要求一行一条、且不能有内嵌换行？
-4. 你的网关怎么处理两个 Server 同名工具？
-5. 工具调用失败了，你怎么让模型自己纠正而不是整个流程崩掉？
-6. `isError: true` 和 JSON-RPC `error` 的区别？什么情况用哪个？
-7. 为什么不信 Server 的 `annotations`？攻击者能怎么利用？
-8. 工具从 9 个涨到 50 个，准确率会怎么变？你怎么缓解？
-9. 结果太长怎么办？只截前半段有什么风险？
-10. 怎么防 Agent 反复调同一个工具？
-11. 审计日志为什么只存参数 hash？
-12. 如果要做 HTTP 传输，你需要改哪些地方？
-
----
-
-## 6. 已知局限（写进 README，面试时主动说）
-
-- 只实现 stdio，未做 Streamable HTTP 与鉴权
-- 未实现 `subscriptions/listen` 与 MRTR，长任务只能靠超时兜底
-- 风险表是静态配置，未做动态学习
-- 单进程串行调用，未做并发调度
-
-**主动说局限的人，比被问出来的人高一档。**
-
----
-
-## 7. 运行
+**当前状态：可运行、可测量、可提交。** 4 个 Server / 12 个 Tool / 45 个单测 / 12 例红队全过 / 真实外部 API 带缓存。零第三方依赖。
 
 ```bash
-python -m unittest discover -s tests -v   # 16 个测试
-python demo.py                            # 五场景端到端演示
-python bench.py injection                 # 红队 12 例
-python bench.py select --provider mock    # 管道自检（mock 数字不能进简历）
-python bench.py select --provider openai  # 真模型，需 BENCH_API_KEY
-python bench.py latency --rounds 50       # P50 / P95
+python demo.py                            # 7 个场景，全部断言
+python -m unittest discover -s tests      # 45 个单测，离线可跑
+python bench.py all --out result.json     # 出数字
 ```
 
-零第三方依赖，Python 3.10+。真实接入客户端时再装官方 SDK 做对照实验。
+---
 
-## 8. 目录
+## 1. 一个信息差（面试时最好用的一句）
+
+MCP 规范在 **2026-07-28** 做了大改：
+
+| 改动 | 旧（≤ 2025-11-25） | 新（2026-07-28） |
+|---|---|---|
+| 会话 | `initialize` + `notifications/initialized` | **取消握手，完全无状态** |
+| 版本协商 | 握手时谈一次 | **每个请求在 `_meta` 里自带版本** |
+| 服务发现 | 无 | **必须实现 `server/discover`** |
+| 结果结构 | 无统一标记 | 所有 result 必须带 `resultType` |
+| 未知版本 | `-32602` | 专用错误码 **`-32022`** |
+
+本实现是 **dual-era**：先用 `server/discover` 探测现代服务端，收到不支持的信号再回退到 `initialize`。两条路径都有单测（`mcp_min/server.py`）。
+
+市面上绝大多数教程还停在旧握手。这个差异只要说出"7 月改版把会话去掉了"，就足以区分"照着教程抄"和"读过规范"。
+
+---
+
+## 2. 架构
 
 ```
-STEPS.md       27 步操作手册（先看这个）
-mcp_min/       手写协议层：protocol / server / validate
-servers/       三个示例 Server：campus / library / notice
-gateway/       client（stdio 驱动）+ gateway（聚合·权限·审计）
-bench/         基准数据与 LLM 适配
-bench.py       指标测量入口
-tests/         16 个单测，覆盖双时代协议与策略
-demo.py        五场景演示
+                     ┌──────────────────────────────────────────┐
+   模型 / LangGraph → │  clients/  名字映射 · 轨迹 · 审批回调      │
+                     └──────────────────┬───────────────────────┘
+                                        │ OpenAI function schema
+                     ┌──────────────────▼───────────────────────┐
+                     │  gateway/  聚合 · 命名空间 · 风险分级      │
+                     │            审批门 · 审计 · 预算 · 截断     │
+                     └───┬──────────┬──────────┬──────────┬─────┘
+                    stdio│     stdio│     stdio│     stdio│
+                  ┌──────▼──┐ ┌─────▼────┐ ┌───▼─────┐ ┌──▼──────┐
+                  │ campus  │ │ library  │ │ notice  │ │ github  │
+                  │ SQLite  │ │ SQLite   │ │ SQLite  │ │ REST API│
+                  └─────────┘ └──────────┘ └─────────┘ └────┬────┘
+                                                            │缓存/ETag/降级
+                                                     datasource/github_api.py
 ```
+
+- **`mcp_min/`** 协议层：JSON-RPC framing、双时代 dispatch、最小 JSON Schema 校验。零依赖。
+- **`datasource/`** 数据层：SQLite 校园库 + 真实 GitHub REST 客户端（磁盘缓存、ETag、限流降级）。
+- **`servers/`** 4 个 MCP Server，共 12 个 Tool，含读写两类。
+- **`gateway/`** 核心原创部分：策略、审批、审计、预算、截断、进程自愈。
+- **`clients/`** 接入层：`. → __` 名字映射、带审批中断的 Agent 循环、成本核算。
+
+---
+
+## 3. 实测数据（`bench.py all`，2026-11-01）
+
+| 指标 | 结果 | 怎么测的 |
+|---|---|---|
+| Server / Tool 数 | 4 / 12 | `demo.py` 场景 1 |
+| 单测 | **45 通过** | `unittest discover` |
+| 红队拦截率 | **100%（12/12）** | 参数注入 / 描述投毒 / 伪造版本 / 预算 / 截断 |
+| 网关延迟 | **P50 16.0ms，P95 18.7ms** | 30 次 `tools/call`，本地 stdio，含鉴权+审计落盘 |
+| 端到端轨迹 | **4/4 通过**，7 次工具调用，平均 33.2ms | scripted 模型，覆盖 允许/拒绝/审批 三条分支 |
+| 外网缓存 | 冷 **735.8ms** → 命中 **10.8ms**，**68×** | GitHub `search/issues`，冷=ttl 0，热=ttl 24h |
+| 工具选择准确率 | 78.6%（mock，**不可入简历**） | 关键词打分器，只证明管道通 |
+
+最后一行必须说明白：那是 mock 基线，不是模型能力。真数字要 `--provider openai`（DeepSeek 即可，28 条用例几毛钱）：
+
+```bash
+export BENCH_API_KEY=sk-xxx
+export BENCH_BASE_URL=https://api.deepseek.com/v1
+export BENCH_MODEL=deepseek-chat
+python bench.py select --provider openai --limit 12 --out select12.json
+python bench.py select --provider openai --limit 6  --out select6.json   # 画衰减曲线
+```
+
+---
+
+## 4. 五个能撑住追问的设计决策
+
+**① 风险表放在网关，不信 Server 的 `annotations`**
+规范原文写明 annotations 不可信。红队用例 `poisoned_annotation` 让 Server 谎称写工具是只读——网关按自己的注册表判定为 `admin`，直接拒。这是"工具投毒"最直接的防线。
+
+**② 截断保留头尾，并显式标注**
+只砍后半段会让模型以为自己读到了完整内容，然后自信地编。测试与演示都在验证这一点。
+**连带发现**：把 JSON 文本截断后它就不可解析了，所以需要机器可读结果的地方必须读 `structuredContent`（协议里专门为此存在）。`demo.py` 场景 4 就演示了这个坑。
+
+**③ 审批是"暂停"，不是"失败"**
+`ApprovalRequired` 在循环里被 `on_approval` 回调接住，用户同意后**带 `approved=True` 重放同一调用**，轨迹不断裂；拒绝则回一条"换种做法"的工具消息给模型，不终止任务。
+
+**④ 外网工具必须能降级**
+无鉴权 GitHub 每小时 60 次。天真实现会在 403 时抛错，把整条轨迹拖死。这里：磁盘缓存 + ETag 304 + 限流时返回 `stale` 缓存并把降级原因写进 `_meta`，模型能看到"这是旧数据"而不是"失败了"。
+
+**⑤ 看不到的工具也走鉴权**
+模型只能看到 `list_tools` 返回的工具，但循环里对"未知名字"仍做 `__ → .` 还原后走一遍 `_authorize`。多一层判断，避免幻觉工具名绕过策略层。
+
+---
+
+## 5. Difference from upstream
+
+协议层参考 MCP 规范 `2026-07-28` 手写，**未使用**官方 SDK（`modelcontextprotocol/python-sdk`）或 FastMCP：
+
+1. **双时代支持**：官方 SDK 面向单一协议版本；本实现用 `server/discover` + 错误码回退，同时服务无状态新客户端与 legacy `initialize` 客户端。
+2. **网关层为原创**：多 Server 聚合、命名空间消歧、风险分级、审批门、审计、预算、进程自愈，上游均无对应实现。
+3. **风险表独立于服务端声明**：依据规范"annotations 不可信"的要求。
+4. **截断策略**：保头保尾 + 显式标记，而非丢弃尾部。
+5. **缓存与降级**：`datasource/github_api.py` 自行实现 ETag/304、限流兜底、离线 stale，未引入 `requests`/`httpx`。
+6. **简化项**：未实现 `subscriptions/listen`、MRTR（`input_required`）、Streamable HTTP 传输与 OAuth；仅覆盖 stdio。
+
+---
+
+## 6. 简历写法（数字都可追溯）
+
+> **MCP 工具网关｜个人项目｜2026.11**
+> 依据 MCP 规范 2026-07-28 修订版手写 JSON-RPC 协议层（零第三方依赖），实现兼容无状态新版与 legacy 握手客户端的 dual-era Server；构建聚合 4 个 Server / 12 个 Tool 的工具网关，实现 `server.tool` 命名空间消歧、基于 principal 的三级权限模型与写操作审批门；为真实外部 API 实现磁盘缓存 + ETag 条件请求 + 限流降级，冷启动 735.8ms → 命中 10.8ms（68×）；结果截断保留头尾并显式标注，死循环由调用预算拦截；45 个单测、12 例红队攻击面拦截率 100%，网关 P95 延迟 18.7ms。
+
+还差两个数字（只有真模型能测）：工具选择准确率 `__%`（12 工具）/ `__%`（6 工具）。
+
+---
+
+## 7. 面试必答
+
+1. MCP 和 function calling 的区别？为什么需要协议层？
+2. 2026-07 改版为什么去掉 `initialize` 会话？无状态的代价是什么？
+3. stdio 传输为什么必须一行一条、且日志只能走 stderr？
+4. 两个 Server 有同名工具怎么办？（命名空间 + 消歧规则）
+5. 工具失败怎么让模型自己纠正而不崩流程？（`isError` vs JSON-RPC `error` 的边界）
+6. 为什么不信 Server 的 `annotations`？攻击者怎么利用？
+7. 工具从 12 个涨到 50 个会怎样？怎么缓解？（分层暴露 / 检索式工具选择）
+8. 结果太长怎么办？只截前半段的风险是什么？
+9. 怎么防 Agent 反复调同一个工具？（预算 + 去重 + 步数）
+10. 审计日志为什么只存参数 hash？
+11. 外部 API 限流了，你的工具会怎么表现？
+12. 要做 HTTP 传输，需要改哪些地方？
+
+---
+
+## 8. 已知局限（主动说）
+
+- 只实现 stdio，未做 Streamable HTTP 与鉴权
+- 未实现 `subscriptions/listen` 与 MRTR，长任务靠超时兜底
+- 风险表是静态配置，未做动态学习
+- 单进程串行调用，未做并发调度
+- 工具选择基准的 mock provider 只是关键词打分，不是模型
+
+---
+
+## 9. 目录
+
+```
+mcp_min/        协议层：protocol（framing/错误码）/ server（双时代）/ validate
+datasource/     campus_db（SQLite）/ github_api（缓存·ETag·降级）
+servers/        campus · library · notice · github（共 12 tool）
+gateway/        client（stdio 驱动）/ gateway（聚合·策略·审计·预算·截断）
+clients/        openai_tools（名字映射·Agent 循环·成本）
+benchkit/       基准用例与模型适配
+bench.py        指标入口：select / latency / e2e / net / injection
+demo.py         7 场景演示（含真实 API 与 LLM 循环）
+tests/          45 个单测：协议 / 策略 / 缓存 / 校验 / 循环
+STEPS.md        27 步操作手册
+```
+
+## 10. 环境
+
+Python 3.10+，零第三方依赖。可选环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `GITHUB_TOKEN` | 提高 GitHub 限流额度（60/h → 5000/h） |
+| `GITHUB_WRITE=1` | 允许 `comment_issue` 真正写入（默认 dry-run） |
+| `BENCH_API_KEY` / `BENCH_BASE_URL` / `BENCH_MODEL` | 测真模型的工具选择准确率 |
+| `CAMPUS_DB` | 指定另一个 SQLite 路径（测试用） |

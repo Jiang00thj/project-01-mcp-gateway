@@ -347,3 +347,25 @@ python -m unittest discover -s tests 2>&1 | tail -2 && python demo.py | tail -6 
 4. 可砍：LangGraph 接入、博客、PR
 
 反过来，**步骤 8（换真实数据）不能砍**。用我给的 SQLite 交作业，等于交了一份别人的作业。
+
+---
+
+## 现状：仓库已经补成成品（2026-11-01）
+
+原来手册里"必须你自己补"的部分，现在大部分已经在代码里了：
+
+| 原步骤 | 现状 |
+|---|---|
+| 步骤 8–12 真实数据 | ✅ 已做。`datasource/campus_db.py` 持久化 SQLite（10 门 AI 专业课程 / 3 名学生 / 100 条教室记录）；`datasource/github_api.py` 接**真实 GitHub REST API**，带磁盘缓存、ETag 304、限流降级 |
+| 步骤 13–15 接客户端 | ✅ 已做。`clients/openai_tools.py`：`campus.search_courses` → `campus__search_courses` 映射（绕开 OpenAI 函数名限制），带审批中断的 Agent 循环，成本核算 |
+| 步骤 16–18 测数字 | ✅ 部分。`bench.py` 五个子命令：`select` / `latency` / `e2e` / `net` / `injection`，实测数据已写进 README 第 3 节 |
+| 步骤 19–24 发布 | ✅ 已做。Git 13 个提交（feat/test/bench/docs 分组），`.gitignore` 分清运行时产物，README 含 `Difference from upstream` |
+
+**只剩三件事需要你本人做：**
+
+1. **真模型的工具选择准确率**（README 里那两个 `__`）—— 需要你自己的 API Key，我这边没有。跑法见 README 第 3 节，DeepSeek 几毛钱。
+2. **Claude Desktop / Cursor 的接入截图** —— 需要在你自己机器上装客户端、填 MCP 配置。这是"真实客户端用过"的唯一证据。
+3. **给上游提一个 PR**（文档修正也算）—— 这是简历上最硬的一句话。
+
+另外两件小事：把 `git config user.name/email` 改成你自己的（我填的是占位值 `Jiang`）；`git remote add origin <你的仓库>` 后推送。
+

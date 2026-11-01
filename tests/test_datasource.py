@@ -7,6 +7,7 @@ test suite that needs the network is a test suite you stop running.
 import io
 import json
 import os
+import warnings
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,10 @@ import urllib.error
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datasource import campus_db, github_api  # noqa: E402
+
+# The fake HTTPError objects used below carry a file handle that CPython
+# closes during GC; that noise hides real failures in the summary line.
+warnings.simplefilter("ignore", ResourceWarning)
 
 
 class CampusStoreTest(unittest.TestCase):
