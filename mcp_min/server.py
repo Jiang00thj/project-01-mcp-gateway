@@ -60,6 +60,10 @@ class MCPServer:
             return func
         return decorator
 
+    def list_tools(self):
+        """Public view of the registry, used by discovery and by the desc lint."""
+        return dict(self._tools)
+
     # ---------------------------------------------------------------- dispatch
     def handle(self, message):
         """Return a response dict, or None for notifications / client replies."""
