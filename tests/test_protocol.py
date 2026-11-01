@@ -143,5 +143,69 @@ class GatewayPolicyTests(unittest.TestCase):
         self.assertTrue(text.endswith("T"))
 
 
+class InteropRegressionTests(unittest.TestCase):
+    """Bugs that only surfaced once a third-party client connected.
+
+    Both were invisible to our own gateway client, which sends ints as ints and
+    pins UTF-8 itself. They are worth a test each so they cannot come back.
+    """
+
+    def test_numeric_string_is_coerced(self):
+        # The Inspector's number input submits "10", not 10.
+        response = call("tools/call", {"_meta": META, "name": "search_courses",
+                                       "arguments": {"keyword": "课", "limit": "5"}})
+        result = response["result"]
+        self.assertFalse(result.get("isError"), result.get("content"))
+
+    def test_non_numeric_string_is_still_rejected(self):
+        # Coercion must not turn into "accept anything".
+        response = call("tools/call", {"_meta": META, "name": "search_courses",
+                                       "arguments": {"keyword": "课", "limit": "abc"}})
+        self.assertTrue(response["result"].get("isError"))
+
+    def test_boolean_string_is_coerced(self):
+        response = call("tools/call", {
+            "_meta": META, "name": "submit_course_change",
+            "arguments": {"student_id": "2021001", "course_id": "CS301",
+                          "action": "drop", "confirm": "true"}})
+        # Either it runs or it refuses for business reasons — but it must not
+        # be rejected as "confirm: expected boolean, got str".
+        text = response["result"]["content"][0]["text"]
+        self.assertNotIn("expected boolean", text)
+
+    @unittest.skipUnless(os.name == "nt", "cp936 stdin is a Windows-only failure mode")
+    def test_utf8_payload_survives_narrow_stdin(self):
+        """Force cp936 as the locale encoding and send UTF-8 Chinese anyway.
+
+        Before the fix this raised UnicodeEncodeError deep inside SQLite and the
+        client only saw "Internal error"; see clients/SETUP-CLIENTS.md.
+        """
+        import json as _json
+        import subprocess
+
+        launcher = os.path.join(ROOT, "mcp_launch.py")
+        lines = [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+             "params": {"protocolVersion": "2025-11-25", "capabilities": {},
+                        "clientInfo": {"name": "t", "version": "0"}}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": "search_courses",
+                        "arguments": {"keyword": "智能体", "limit": "5"}}},
+        ]
+        payload = "\n".join(_json.dumps(x, ensure_ascii=False) for x in lines) + "\n"
+        env = dict(os.environ, PYTHONIOENCODING="cp936")
+        proc = subprocess.run(
+            [sys.executable, launcher, "campus"],
+            input=payload.encode("utf-8"),
+            capture_output=True, timeout=60, env=env,
+        )
+        stdout = proc.stdout.decode("utf-8", "replace")
+        last = [ln for ln in stdout.splitlines() if '"id":2' in ln]
+        self.assertTrue(last, f"no response; stderr={proc.stderr.decode('utf-8', 'replace')[:400]}")
+        self.assertIn("CS401", last[-1])
+        self.assertNotIn("UnicodeEncodeError", proc.stderr.decode("utf-8", "replace"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
