@@ -219,7 +219,7 @@ README 里那些 `__` 就是这一步填的。
 export BENCH_API_KEY=sk-YOUR-KEY-HERE
 export BENCH_BASE_URL=https://api.deepseek.com/v1
 export BENCH_MODEL=deepseek-chat
-python bench.py select --provider openai --out result.json
+python bench.py select --provider openai --out benchkit/results/result.json
 ```
 
 **预期**：`准确率：xx.x%  (n/24)`。

@@ -2,12 +2,13 @@
 
 手写 MCP 协议层 + 多 Server 工具网关：把"给 Agent 供工具"从"调个 SDK"做成能讲清协议、能控权限、能审计、能量化的工程系统。
 
-**当前状态：可运行、可测量、可提交。** 4 个 Server / 12 个 Tool / 45 个单测 / 12 例红队全过 / 真实外部 API 带缓存。零第三方依赖。
+**当前状态：可运行、可测量、可提交。** 4 个 Server / 12 个 Tool / 69 个单测 / 12 例红队全过 / 真实外部 API 带缓存 / CI 双平台绿。零第三方依赖。
 
 ```bash
-python demo.py                            # 7 个场景，全部断言
-python -m unittest discover -s tests      # 45 个单测，离线可跑
-python bench.py all --out result.json     # 出数字
+python demo.py                                   # 7 个场景，全部断言
+python -m unittest discover -s tests             # 69 个单测，离线可跑
+python -m benchkit.desc_lint --arm improved      # 描述质量门禁，CI 卡这个
+python bench.py all --out benchkit/results/result.json
 ```
 
 ---
@@ -65,7 +66,7 @@ MCP 规范在 **2026-07-28** 做了大改：
 | 指标 | 结果 | 怎么测的 |
 |---|---|---|
 | Server / Tool 数 | 4 / 12 | `demo.py` 场景 1 |
-| 单测 | **45 通过** | `unittest discover` |
+| 单测 | **69 通过** | `unittest discover` |
 | 红队拦截率 | **100%（12/12）** | 参数注入 / 描述投毒 / 伪造版本 / 预算 / 截断 |
 | 网关延迟 | **P50 16.0ms，P95 18.7ms** | 30 次 `tools/call`，本地 stdio，含鉴权+审计落盘 |
 | 端到端轨迹 | **4/4 通过**，7 次工具调用，平均 33.2ms | scripted 模型，覆盖 允许/拒绝/审批 三条分支 |
@@ -118,7 +119,18 @@ comment_issue        → get_issue           （回复他我们会跟进）
 2. **负向约束**——"仅用于查找；用户要借出时改用 `library.borrow_book`，即使他已经给出索书号"；
 3. **用户原话当触发词**——"借一下 / 退掉 / 回一条"，因为路由器匹配的是表面形式，不是本体。
 
-> **改进版目前没有合入 `servers/` 里的原始定义**，只作为 `--describe improved` 这一实验臂存在。这是故意的：一旦合入，原描述就没有对照组了，数字也就不可复现。正确的收尾方式是给工具描述加一条 lint（检查每个 write 工具是否有排他指向、每个 read 工具是否声明了"不要用它做什么"），在 CI 里拦住回退——这是下一步，还没做。
+> **改进版目前没有合入 `servers/` 里的原始定义**，只作为 `--describe improved` 这一实验臂存在。这是故意的：一旦合入，原描述就没有对照组了，数字也就不可复现。
+>
+> 那么怎么防止这次改进被后人悄悄改回去？**用 lint，不用合入。** `benchkit/desc_lint.py` 把上面三条纪律写成可执行检查：read 工具必须以 `【只读` 开头、write 工具必须以 `【写入` 开头、必须带用户原话触发词、不得为空/过短/含占位符/与同域工具描述重复。同一套规则跑两个臂：
+>
+> ```bash
+> $ python -m benchkit.desc_lint --arm original
+> 12 tools, 25 errors, 12 warnings      # 对照组：这就是为什么需要改写
+> $ python -m benchkit.desc_lint --arm improved
+> 12 tools, 0 errors, 8 warnings        # 实验臂：CI 卡 0 error
+> ```
+>
+> CI 里两条都跑：improved 必须 0 error（拦住回退），original 必须仍然失败（一旦它变绿，说明有人动了原始描述，A/B 对照组就没了，CI 同样报错）。剩下 8 条 warning 是**已知且有意保留的**——改写只针对真实失败过的 14 条用例，不是给 12 个工具都写满分描述；warning 让这笔账一直可见，但不用它卡 CI。
 
 ### 3.5 附带发现：`required` 会诱发幻觉工具名
 
@@ -140,12 +152,12 @@ export BENCH_API_KEY=sk-xxx                     # DeepSeek 即可，全部实验
 export BENCH_MODEL=deepseek-flash
 
 python bench.py select --provider openai --thinking off --tool-choice required \
-       --limit 12 --describe original --out a.json    # 77.8%
+       --limit 12 --describe original --out benchkit/results/v2_flash_orig.json
 python bench.py select --provider openai --thinking off --tool-choice required \
-       --limit 12 --describe improved --out b.json    # 92.1%
+       --limit 12 --describe improved --out benchkit/results/v2_flash_impr.json
 ```
 
-`--limit 3/6/9/12` 画衰减曲线，`--describe original/improved` 切描述组。`--out` 会记录每次调用的 token 数（flash 原描述 1605 tokens/次，改写后 1847，+15% 是描述变长的代价）。
+`--limit 3/6/9/12` 画衰减曲线，`--describe original/improved` 切描述组。`--out` 会记录每次调用的 token 数（flash 原描述 1605 tokens/次，改写后 1847，+15% 是描述变长的代价）。跑完把新文件放进 `benchkit/results/`，命名规则见该目录的 README——README 里每个数字都能点回那次运行的原始输出。
 
 ### 3.8 真实客户端接入（MCP Inspector 实拍）
 
@@ -207,7 +219,7 @@ python clients/install_clients.py --cursor   # 写 .cursor/mcp.json
 ## 6. 简历写法（数字都可追溯）
 
 > **MCP 工具网关｜个人项目｜2026.11**
-> 依据 MCP 规范 2026-07-28 修订版手写 JSON-RPC 协议层（零第三方依赖），实现兼容无状态新版与 legacy 握手客户端的 dual-era Server；构建聚合 4 个 Server / 12 个 Tool 的工具网关，实现 `server.tool` 命名空间消歧、基于 principal 的三级权限模型与写操作审批门；为真实外部 API 实现磁盘缓存 + ETag 条件请求 + 限流降级，冷启动 735.8ms → 命中 10.8ms（68×）；45 个单测、12 例红队攻击面拦截率 100%，网关 P95 延迟 18.7ms；**在 63 条自建工具选择集上将准确率从 77.8% 提升至 92.1%（McNemar p=0.0117），并通过对照实验证明换用更大模型仅提升 1.6 个百分点（不显著）——瓶颈在工具描述而非模型规模。**
+> 依据 MCP 规范 2026-07-28 修订版手写 JSON-RPC 协议层（零第三方依赖），实现兼容无状态新版与 legacy 握手客户端的 dual-era Server；构建聚合 4 个 Server / 12 个 Tool 的工具网关，实现 `server.tool` 命名空间消歧、基于 principal 的三级权限模型与写操作审批门；为真实外部 API 实现磁盘缓存 + ETag 条件请求 + 限流降级，冷启动 735.8ms → 命中 10.8ms（68×）；69 个单测、12 例红队攻击面拦截率 100%，网关 P95 延迟 18.7ms；**在 63 条自建工具选择集上将准确率从 77.8% 提升至 92.1%（McNemar p=0.0117），并通过对照实验证明换用更大模型仅提升 1.6 个百分点（不显著）——瓶颈在工具描述而非模型规模。**
 
 最后一句是这段里唯一"别人抄不走"的东西：它不是功能列表，是一个**实验结论**。面试官听到"我先试了换大模型，没用，才去改描述"，会立刻把你和"调包选手"区分开。
 
@@ -267,13 +279,16 @@ datasource/     campus_db（SQLite）/ github_api（缓存·ETag·降级）
 servers/        campus · library · notice · github（共 12 tool）
 gateway/        client（stdio 驱动）/ gateway（聚合·策略·审计·预算·截断）
 clients/        openai_tools（名字映射·Agent 循环·成本）
-                install_clients.py（写 Claude/Cursor 配置）
-                SETUP-CLIENTS.md（接入步骤 + 两个互操作 bug）
+                install_clients.py（写 Claude/Cursor/Cline 配置）
+                SETUP-CLIENTS.md（接入步骤 + 三个互操作 bug）
 benchkit/       基准用例与模型适配
+  desc_lint.py  描述质量门禁：error 卡 CI，warning 记技术债
+  results/      每次跑测的原始输出，README 里每个数字都能点回这里
 bench.py        指标入口：select / latency / e2e / net / injection
 mcp_launch.py   客户端启动器：固定 cwd、UTF-8 三流、可选 MCP_TRACE 抓包
 demo.py         7 场景演示（含真实 API 与 LLM 循环）
-tests/          45 个单测：协议 / 策略 / 缓存 / 校验 / 循环
+tests/          69 个单测：协议 / 策略 / 缓存 / 校验 / 循环 / 描述 lint
+.github/        CI：Linux + Windows × py3.11/3.13，单测 + lint 双门禁 + demo
 docs/screenshots/  Inspector 实拍 4 张
 STEPS.md        27 步操作手册
 ```
