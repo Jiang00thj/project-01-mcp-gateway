@@ -1,0 +1,4 @@
+# PyCharm 本地项目配置：忽略本机状态，保留共享的运行配置
+workspace.xml
+usage.statistics.xml
+shelf/
