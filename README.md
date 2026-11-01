@@ -1,5 +1,7 @@
 # 项目一 · MCP 工具网关（Tool Gateway）
 
+[![CI](https://github.com/Jiang00thj/project-01-mcp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/Jiang00thj/project-01-mcp-gateway/actions/workflows/ci.yml)
+
 手写 MCP 协议层 + 多 Server 工具网关：把"给 Agent 供工具"从"调个 SDK"做成能讲清协议、能控权限、能审计、能量化的工程系统。
 
 **当前状态：可运行、可测量、可提交。** 4 个 Server / 12 个 Tool / 69 个单测 / 12 例红队全过 / 真实外部 API 带缓存 / CI 双平台绿。零第三方依赖。
