@@ -147,6 +147,28 @@ python bench.py select --provider openai --thinking off --tool-choice required \
 
 `--limit 3/6/9/12` 画衰减曲线，`--describe original/improved` 切描述组。`--out` 会记录每次调用的 token 数（flash 原描述 1605 tokens/次，改写后 1847，+15% 是描述变长的代价）。
 
+### 3.8 真实客户端接入（MCP Inspector 实拍）
+
+![连接成功](docs/screenshots/01-connected.png)
+
+官方 Inspector 2.13.0 连接 `campus` server：`Connected`、协商版本 **MCP 2025-11-25**、Messages 面板标着 **LEGACY**（`initialize` → `notifications/initialized` → `tools/list COMPLETE`）。
+
+这张图是双时代设计在真实客户端上的直接证据——Inspector 是旧版客户端，走 `initialize` 握手，被 legacy 回退接住；只实现 2026-07-28 无状态版本的话，这一步会失败。
+
+另外三张（工具列表 / 工具详情 / 真实调用）和完整接入步骤见 **[clients/SETUP-CLIENTS.md](clients/SETUP-CLIENTS.md)**，含 Claude Desktop 与 Cursor 的一键配置：
+
+```bash
+python clients/install_clients.py --claude   # 合并进 Claude Desktop（自动备份）
+python clients/install_clients.py --cursor   # 写 .cursor/mcp.json
+```
+
+**接入过程发现两个本地测不出来的 bug**（详见该文档第 4 节）：
+
+1. **stdin 在 Windows 上按 cp936 解码**，UTF-8 中文变成孤立代理字符（`\udc93`），`json.loads` 照收，一路带到 SQLite 才抛 `UnicodeEncodeError`，客户端只显示 `Internal error`。修复是把 stdin/stdout/stderr 三个流都钉死 UTF-8。
+2. **数字字段被表单控件传成字符串**（`limit: "10"`），严格校验直接拒绝。加了只在 schema 要求 integer/number/boolean 时才生效的宽容转换，`limit: "abc"` 仍然被拒。
+
+这两条是"接真实客户端"真正的产出，截图只是副产品。
+
 ---
 
 ## 4. 五个能撑住追问的设计决策
@@ -232,6 +254,8 @@ A：不是协议层，是**确定该测什么**。一开始我只测"12 个工�
 - 只用 DeepSeek 两个模型验证，结论能否外推到 GPT / Claude 未验证
 - 同一配置重复运行会有 ±1 条波动（见 3.2 的 62/63 与 63/63），单次 100% 不可当结论
 - 工具选择基准的 mock provider 只是关键词打分，不是模型
+- **真实客户端只在 MCP Inspector 上验证过**。Claude Desktop 和 Cursor 都需要账号登录，本机未安装也未实测——`install_clients.py` 生成的配置是照官方 schema 写的，但"在 Claude 对话框里弹出工具确认框"那个场景仍是未验证状态
+- 未做 Streamable HTTP 传输，因此无法接入任何基于 HTTP 的远程客户端
 
 ---
 
@@ -243,10 +267,14 @@ datasource/     campus_db（SQLite）/ github_api（缓存·ETag·降级）
 servers/        campus · library · notice · github（共 12 tool）
 gateway/        client（stdio 驱动）/ gateway（聚合·策略·审计·预算·截断）
 clients/        openai_tools（名字映射·Agent 循环·成本）
+                install_clients.py（写 Claude/Cursor 配置）
+                SETUP-CLIENTS.md（接入步骤 + 两个互操作 bug）
 benchkit/       基准用例与模型适配
 bench.py        指标入口：select / latency / e2e / net / injection
+mcp_launch.py   客户端启动器：固定 cwd、UTF-8 三流、可选 MCP_TRACE 抓包
 demo.py         7 场景演示（含真实 API 与 LLM 循环）
 tests/          45 个单测：协议 / 策略 / 缓存 / 校验 / 循环
+docs/screenshots/  Inspector 实拍 4 张
 STEPS.md        27 步操作手册
 ```
 
