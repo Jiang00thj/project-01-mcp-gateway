@@ -58,4 +58,10 @@ jobs:
           fi
 
       - name: End-to-end demo (all scenes assert)
+        env:
+          # The GitHub scene degrades gracefully when the API is unreachable,
+          # but the shared runner IP is usually rate-limited. The built-in
+          # token lifts that from 60/h to 5000/h so the cache path is actually
+          # exercised instead of skipped.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python demo.py
