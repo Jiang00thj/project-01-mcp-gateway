@@ -216,7 +216,7 @@ README 里那些 `__` 就是这一步填的。
 ### 步骤 16 · 用真模型测工具选择准确率
 
 ```bash
-export BENCH_API_KEY=你的key
+export BENCH_API_KEY=sk-YOUR-KEY-HERE
 export BENCH_BASE_URL=https://api.deepseek.com/v1
 export BENCH_MODEL=deepseek-chat
 python bench.py select --provider openai --out result.json
