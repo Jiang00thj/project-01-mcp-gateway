@@ -8,6 +8,7 @@ Schema is created on first use and seeded once. Point CAMPUS_DB at another path
 to get an isolated database (the tests do exactly that).
 """
 
+import atexit
 import os
 import sqlite3
 import time
@@ -113,7 +114,24 @@ def seed(conn):
 
 
 def open_db(path=None):
-    return seed(connect(path))
+    """Open + seed, and arrange for the connection to be closed on exit.
+
+    Without the atexit hook, a Server process that is stopped with SIGTERM
+    leaves the connection to the garbage collector, which prints
+    "ResourceWarning: unclosed database" on stderr. That noise lands in the
+    gateway's stderr capture buffer and looks like a real failure during a
+    demo, so it is worth closing explicitly.
+    """
+    conn = seed(connect(path))
+    atexit.register(_close_quietly, conn)
+    return conn
+
+
+def _close_quietly(conn):
+    try:
+        conn.close()
+    except sqlite3.Error:
+        pass
 
 
 # ---------------------------------------------------------------- queries
