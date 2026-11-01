@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-11-01 20:57",
+  "selection": {
+    "provider": "openai:deepseek-flash/thinking:off",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 92.1,
+    "describe": "improved",
+    "tool_choice": "required",
+    "tokens_per_call": {
+      "prompt": 1794.2,
+      "completion": 52.6,
+      "reasoning": 0.0
+    },
+    "usage": {
+      "prompt": 113037,
+      "completion": 3313,
+      "reasoning": 0,
+      "calls": 63
+    },
+    "misses": [
+      {
+        "instruction": "在 issue 下面回一条复现步骤",
+        "expected": "github.comment_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      },
+      {
+        "instruction": "保研需要多少绩点，我现在够吗",
+        "expected": "campus.compute_gpa",
+        "picked": "notice.search_notices",
+        "raw": "tool_calls:notice__search_notices"
+      },
+      {
+        "instruction": "下学期想换成张老师的班",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "打开那个 issue 的详细内容",
+        "expected": "github.get_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      },
+      {
+        "instruction": "回复他我们会跟进",
+        "expected": "github.comment_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      }
+    ]
+  }
+}

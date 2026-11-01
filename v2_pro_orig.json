@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-11-01 20:58",
+  "selection": {
+    "provider": "openai:deepseek-v4-pro/thinking:off",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 79.4,
+    "describe": "original",
+    "tool_choice": "required",
+    "tokens_per_call": {
+      "prompt": 1569.2,
+      "completion": 48.1,
+      "reasoning": 0.0
+    },
+    "usage": {
+      "prompt": 98862,
+      "completion": 3029,
+      "reasoning": 0,
+      "calls": 63
+    },
+    "misses": [
+      {
+        "instruction": "我要选 CS401",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "帮我借一下 TP391-12",
+        "expected": "library.borrow_book",
+        "picked": "library.search_books",
+        "raw": "tool_calls:library__search_books"
+      },
+      {
+        "instruction": "我要借出那本大模型的书",
+        "expected": "library.borrow_book",
+        "picked": "library.search_books",
+        "raw": "tool_calls:library__search_books"
+      },
+      {
+        "instruction": "在 issue 下面回一条复现步骤",
+        "expected": "github.comment_issue",
+        "picked": "github.get_issue",
+        "raw": "tool_calls:github__get_issue"
+      },
+      {
+        "instruction": "把这门课退了吧",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.get_grades",
+        "raw": "tool_calls:campus__get_grades"
+      },
+      {
+        "instruction": "我想加选一门机器学习",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "CS301 我不上了，帮我取消",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "下学期想换成张老师的班",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "帮我把这本书借了",
+        "expected": "library.borrow_book",
+        "picked": "library.search_books",
+        "raw": "tool_calls:library__search_books"
+      },
+      {
+        "instruction": "帮我借《动手学深度学习》",
+        "expected": "library.borrow_book",
+        "picked": "library.search_books",
+        "raw": "tool_calls:library__search_books"
+      },
+      {
+        "instruction": "这本能借出来吗，帮我办一下",
+        "expected": "library.borrow_book",
+        "picked": "library.search_books",
+        "raw": "tool_calls:library__search_books"
+      },
+      {
+        "instruction": "给这个 issue 加一条评论说明复现环境",
+        "expected": "github.comment_issue",
+        "picked": "github.get_issue",
+        "raw": "tool_calls:github__get_issue"
+      },
+      {
+        "instruction": "回复他我们会跟进",
+        "expected": "github.comment_issue",
+        "picked": "github.get_issue",
+        "raw": "tool_calls:github__get_issue"
+      }
+    ]
+  }
+}

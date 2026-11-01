@@ -1,0 +1,92 @@
+[
+  {
+    "file": "v2_flash_orig3.json",
+    "model": "deepseek-flash",
+    "describe": "original",
+    "tools": 3,
+    "cases": 17,
+    "accuracy": 100.0,
+    "misses": 0
+  },
+  {
+    "file": "v2_flash_orig6.json",
+    "model": "deepseek-flash",
+    "describe": "original",
+    "tools": 6,
+    "cases": 37,
+    "accuracy": 89.2,
+    "misses": 4
+  },
+  {
+    "file": "v2_flash_orig9.json",
+    "model": "deepseek-flash",
+    "describe": "original",
+    "tools": 9,
+    "cases": 50,
+    "accuracy": 84.0,
+    "misses": 8
+  },
+  {
+    "file": "v2_flash_orig.json",
+    "model": "deepseek-flash",
+    "describe": "original",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 77.8,
+    "misses": 14
+  },
+  {
+    "file": "v2_flash_impr3.json",
+    "model": "deepseek-flash",
+    "describe": "improved",
+    "tools": 3,
+    "cases": 17,
+    "accuracy": 100.0,
+    "misses": 0
+  },
+  {
+    "file": "v2_flash_impr6.json",
+    "model": "deepseek-flash",
+    "describe": "improved",
+    "tools": 6,
+    "cases": 37,
+    "accuracy": 100.0,
+    "misses": 0
+  },
+  {
+    "file": "v2_flash_impr9.json",
+    "model": "deepseek-flash",
+    "describe": "improved",
+    "tools": 9,
+    "cases": 50,
+    "accuracy": 92.0,
+    "misses": 4
+  },
+  {
+    "file": "v2_flash_impr.json",
+    "model": "deepseek-flash",
+    "describe": "improved",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 92.1,
+    "misses": 5
+  },
+  {
+    "file": "v2_pro_orig.json",
+    "model": "deepseek-v4-pro",
+    "describe": "original",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 79.4,
+    "misses": 13
+  },
+  {
+    "file": "v2_pro_impr.json",
+    "model": "deepseek-v4-pro",
+    "describe": "improved",
+    "tools": 12,
+    "cases": 63,
+    "accuracy": 100.0,
+    "misses": 0
+  }
+]

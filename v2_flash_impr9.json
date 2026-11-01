@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-11-01 21:07",
+  "selection": {
+    "provider": "openai:deepseek-flash/thinking:off",
+    "tools": 9,
+    "cases": 50,
+    "accuracy": 92.0,
+    "describe": "improved",
+    "tool_choice": "required",
+    "tokens_per_call": {
+      "prompt": 1506.4,
+      "completion": 50.5,
+      "reasoning": 0.0
+    },
+    "usage": {
+      "prompt": 75319,
+      "completion": 2524,
+      "reasoning": 0,
+      "calls": 50
+    },
+    "misses": [
+      {
+        "instruction": "在 issue 下面回一条复现步骤",
+        "expected": "github.comment_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      },
+      {
+        "instruction": "下学期想换成张老师的班",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "给这个 issue 加一条评论说明复现环境",
+        "expected": "github.comment_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      },
+      {
+        "instruction": "回复他我们会跟进",
+        "expected": "github.comment_issue",
+        "picked": "github.search_issues",
+        "raw": "tool_calls:github__search_issues"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-11-01 21:06",
+  "selection": {
+    "provider": "openai:deepseek-flash/thinking:off",
+    "tools": 6,
+    "cases": 37,
+    "accuracy": 100.0,
+    "describe": "improved",
+    "tool_choice": "required",
+    "tokens_per_call": {
+      "prompt": 1125.0,
+      "completion": 54.6,
+      "reasoning": 0.0
+    },
+    "usage": {
+      "prompt": 41624,
+      "completion": 2020,
+      "reasoning": 0,
+      "calls": 37
+    },
+    "misses": []
+  }
+}

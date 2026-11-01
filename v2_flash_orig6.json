@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-11-01 21:05",
+  "selection": {
+    "provider": "openai:deepseek-flash/thinking:off",
+    "tools": 6,
+    "cases": 37,
+    "accuracy": 89.2,
+    "describe": "original",
+    "tool_choice": "required",
+    "tokens_per_call": {
+      "prompt": 968.0,
+      "completion": 50.8,
+      "reasoning": 0.0
+    },
+    "usage": {
+      "prompt": 35815,
+      "completion": 1881,
+      "reasoning": 0,
+      "calls": 37
+    },
+    "misses": [
+      {
+        "instruction": "我要选 CS401",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "把这门课退了吧",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "我想加选一门机器学习",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      },
+      {
+        "instruction": "下学期想换成张老师的班",
+        "expected": "campus.submit_course_change",
+        "picked": "campus.search_courses",
+        "raw": "tool_calls:campus__search_courses"
+      }
+    ]
+  }
+}
