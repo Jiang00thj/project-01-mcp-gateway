@@ -3,6 +3,7 @@
     python clients/install_clients.py --print        # 只打印，不落盘
     python clients/install_clients.py --claude       # 合并进 Claude Desktop
     python clients/install_clients.py --cursor       # 写 .cursor/mcp.json
+    python clients/install_clients.py --cline        # 写 Cline 扩展的配置
     python clients/install_clients.py --all
 
 Design notes
@@ -55,6 +56,53 @@ def cursor_path():
     return os.path.join(ROOT, ".cursor", "mcp.json")
 
 
+def cline_paths():
+    """Cline runs in VS Code, Cursor and VSCodium; each has its own globalStorage.
+
+    Detection keys on the editor executable, not on the data directory:
+    a freshly installed editor that has never launched has no %APPDATA%
+    folder yet, and that is exactly when the config must still be written.
+    Returns every host that is actually installed.
+    """
+    appdata = os.environ.get("APPDATA")
+    local = os.environ.get("LOCALAPPDATA")
+    if not (appdata and local):
+        return []
+    hosts = [
+        ("Code", [os.path.join(local, "Programs", "Microsoft VS Code", "Code.exe"),
+                  os.path.join("C:", os.sep, "Program Files", "Microsoft VS Code", "Code.exe"),
+                  os.path.join("C:", os.sep, "Program Files (x86)", "Microsoft VS Code", "Code.exe")]),
+        ("Cursor", [os.path.join(local, "Programs", "cursor", "Cursor.exe")]),
+        ("VSCodium", [os.path.join(local, "Programs", "VSCodium", "VSCodium.exe")]),
+    ]
+    rel = os.path.join(
+        "User", "globalStorage",
+        "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json",
+    )
+    paths = []
+    for folder, exes in hosts:
+        if any(os.path.isfile(exe) for exe in exes):
+            paths.append(os.path.join(appdata, folder, rel))
+    return paths or [os.path.join(appdata, "Code", rel)]
+
+
+CLINE_DEFAULTS = {"disabled": False, "autoApprove": [], "timeout": 60}
+
+
+def build_cline_config():
+    """Cline needs per-server switches beside command/args.
+
+    `autoApprove` stays empty on purpose: every tool call goes through Cline's
+    approval dialog. That is the same posture as the gateway's write-approval
+    gate — nothing writes without a human clicking yes — and it makes the
+    approval screenshot reproducible instead of a lucky one-off.
+    """
+    config = build_config()
+    for entry in config["mcpServers"].values():
+        entry.update(CLINE_DEFAULTS)
+    return config
+
+
 def merge_into(path, new):
     """Merge new servers into an existing config, keeping unrelated keys."""
     existing = {}
@@ -98,6 +146,15 @@ def install(kind, config):
         write(path, payload)
         print(f"  新增 {len(added)} 个 server，其余保持不变")
         print("  完全退出 Claude Desktop（托盘也要退）再启动，才会加载新配置")
+    elif kind == "cline":
+        paths = cline_paths()
+        added = []
+        for path in paths:
+            payload, added_here = merge_into(path, config)
+            write(path, payload)
+            added.extend(added_here)
+        print(f"  写入 {len(paths)} 个宿主，共新增 {len(added)} 个 server")
+        print("  编辑器里打开 Cline 面板 → MCP Servers，四个应显示为已连接")
     else:
         path = cursor_path()
         payload, _ = merge_into(path, config)
@@ -110,11 +167,12 @@ def main():
     parser.add_argument("--print", dest="do_print", action="store_true")
     parser.add_argument("--claude", action="store_true")
     parser.add_argument("--cursor", action="store_true")
+    parser.add_argument("--cline", action="store_true")
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
     config = build_config()
-    if args.do_print or not (args.claude or args.cursor or args.all):
+    if args.do_print or not (args.claude or args.cursor or args.cline or args.all):
         print(json.dumps(config, ensure_ascii=False, indent=2))
         if not args.do_print:
             print("\n加 --claude 或 --cursor 才会写入。", file=sys.stderr)
@@ -126,6 +184,9 @@ def main():
     if args.cursor or args.all:
         print("\nCursor:")
         install("cursor", config)
+    if args.cline or args.all:
+        print("\nCline:")
+        install("cline", build_cline_config())
     return 0
 
 

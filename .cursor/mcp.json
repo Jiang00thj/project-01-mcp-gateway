@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "campus": {
+      "command": "C:\\Users\\江00\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe",
+      "args": [
+        "C:\\Users\\江00\\WorkBuddy\\2026-11-01-18-45-34\\project-01-mcp-gateway\\mcp_launch.py",
+        "campus"
+      ],
+      "env": {}
+    },
+    "library": {
+      "command": "C:\\Users\\江00\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe",
+      "args": [
+        "C:\\Users\\江00\\WorkBuddy\\2026-11-01-18-45-34\\project-01-mcp-gateway\\mcp_launch.py",
+        "library"
+      ],
+      "env": {}
+    },
+    "notice": {
+      "command": "C:\\Users\\江00\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe",
+      "args": [
+        "C:\\Users\\江00\\WorkBuddy\\2026-11-01-18-45-34\\project-01-mcp-gateway\\mcp_launch.py",
+        "notice"
+      ],
+      "env": {}
+    },
+    "github": {
+      "command": "C:\\Users\\江00\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe",
+      "args": [
+        "C:\\Users\\江00\\WorkBuddy\\2026-11-01-18-45-34\\project-01-mcp-gateway\\mcp_launch.py",
+        "github"
+      ],
+      "env": {}
+    }
+  }
+}
