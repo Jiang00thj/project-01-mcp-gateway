@@ -13,5 +13,9 @@ Thumbs.db
 .DS_Store
 
 # IDE
+.vscode/
 .idea/workspace.xml
 .idea/usage.statistics.xml
+
+# logs
+*.log
