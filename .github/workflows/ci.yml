@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.13"]
+
+    # The two bugs that cost the most time in this project were both encoding
+    # bugs that only showed up on a cp936/GBK console. Running the same suite on
+    # Linux and Windows is the cheapest way to keep that class of bug fixed.
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Show interpreter
+        run: python -V
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      # The gate. Zero errors on the rewritten set; a missing 【只读】/【写入】
+      # prefix, an empty description or a leftover placeholder fails here.
+      - name: Description lint (improved arm must be clean)
+        run: python -m benchkit.desc_lint --arm improved
+
+      # The control group is evidence, not a to-do. If it ever starts passing,
+      # someone edited the original descriptions and the A/B numbers in the
+      # README are no longer reproducible.
+      - name: Description lint (original arm must still fail)
+        shell: bash
+        run: |
+          set +e
+          python -m benchkit.desc_lint --arm original
+          code=$?
+          set -e
+          echo "original arm exit=$code"
+          if [ "$code" -ne 1 ]; then
+            echo "::error::the control group stopped failing; the A/B experiment can no longer be reproduced"
+            exit 1
+          fi
+
+      - name: End-to-end demo (all scenes assert)
+        run: python demo.py
