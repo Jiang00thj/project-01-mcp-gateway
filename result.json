@@ -1,0 +1,205 @@
+{
+  "timestamp": "2026-11-01 20:31",
+  "selection": {
+    "provider": "mock-keyword-scorer",
+    "tools": 12,
+    "cases": 28,
+    "accuracy": 78.6,
+    "misses": [
+      {
+        "instruction": "教务那边发过课程调整公告吗",
+        "expected": "notice.search_notices",
+        "picked": "campus.search_courses"
+      },
+      {
+        "instruction": "发布一个关于停课的公告",
+        "expected": "notice.publish_notice",
+        "picked": "campus.search_courses"
+      },
+      {
+        "instruction": "MCP 官方仓库里有没有人提过限流的问题",
+        "expected": "github.search_issues",
+        "picked": "campus.compute_gpa"
+      },
+      {
+        "instruction": "搜一下 servers 仓库关于 tool 权限的 issue",
+        "expected": "github.search_issues",
+        "picked": "campus.compute_gpa"
+      },
+      {
+        "instruction": "把第 42 号 issue 的正文给我看看",
+        "expected": "github.get_issue",
+        "picked": "campus.compute_gpa"
+      },
+      {
+        "instruction": "在 issue 下面回一条复现步骤",
+        "expected": "github.comment_issue",
+        "picked": "campus.compute_gpa"
+      }
+    ]
+  },
+  "latency": {
+    "rounds": 30,
+    "p50_ms": 16.0,
+    "p95_ms": 18.7
+  },
+  "e2e": {
+    "cases": [
+      {
+        "name": "单 server：查课 + 算绩点",
+        "tool_calls": 2,
+        "approvals": 1,
+        "denied": 0,
+        "errors": 0,
+        "expect": {
+          "tool_calls": 2,
+          "approvals": 0,
+          "denied": 0,
+          "errors": 0
+        },
+        "passed": false,
+        "latency_ms": 46
+      },
+      {
+        "name": "跨 server：课程 + 书目 + 通知",
+        "tool_calls": 3,
+        "approvals": 0,
+        "denied": 0,
+        "errors": 0,
+        "expect": {
+          "tool_calls": 3,
+          "approvals": 0,
+          "denied": 0,
+          "errors": 0
+        },
+        "passed": true,
+        "latency_ms": 51
+      },
+      {
+        "name": "权限边界：学生想发全校通知",
+        "tool_calls": 1,
+        "approvals": 0,
+        "denied": 1,
+        "errors": 0,
+        "expect": {
+          "tool_calls": 1,
+          "approvals": 0,
+          "denied": 1,
+          "errors": 0
+        },
+        "passed": true,
+        "latency_ms": 21
+      },
+      {
+        "name": "审批链：管理员发通知先过人工",
+        "tool_calls": 1,
+        "approvals": 1,
+        "denied": 0,
+        "errors": 0,
+        "expect": {
+          "tool_calls": 1,
+          "approvals": 1,
+          "denied": 0,
+          "errors": 0
+        },
+        "passed": true,
+        "latency_ms": 34
+      }
+    ],
+    "passed": 3,
+    "total": 4,
+    "total_calls": 7,
+    "avg_latency_ms": 38.0
+  },
+  "net": {
+    "rounds": 2,
+    "cold_p50_ms": 735.8,
+    "warm_p50_ms": 10.8,
+    "speedup": 68.0,
+    "meta": {
+      "cache": "hit",
+      "age_s": 0,
+      "source": "disk",
+      "stale": false
+    }
+  },
+  "injection": {
+    "total": 12,
+    "passed": 12,
+    "rate": 100.0,
+    "cases": [
+      {
+        "name": "SQL 注入写在查询参数里",
+        "due": "empty",
+        "observed": "empty",
+        "passed": true
+      },
+      {
+        "name": "超长参数撑爆上下文",
+        "due": "is_error",
+        "observed": "is_error",
+        "passed": true
+      },
+      {
+        "name": "limit 传超大值",
+        "due": "is_error",
+        "observed": "is_error",
+        "passed": true
+      },
+      {
+        "name": "枚举字段传非法值",
+        "due": "is_error",
+        "observed": "is_error",
+        "passed": true
+      },
+      {
+        "name": "调用不存在的工具",
+        "due": "rpc_error",
+        "observed": "rpc_error",
+        "passed": true
+      },
+      {
+        "name": "请求不带 _meta 版本",
+        "due": "rpc_error",
+        "observed": "rpc_error",
+        "passed": true
+      },
+      {
+        "name": "伪造协议版本",
+        "due": "rpc_error",
+        "observed": "rpc_error",
+        "passed": true
+      },
+      {
+        "name": "guest 直接调写工具",
+        "due": "deny",
+        "observed": "deny",
+        "passed": true
+      },
+      {
+        "name": "写工具 confirm=false 绕过确认",
+        "due": "is_error",
+        "observed": "is_error",
+        "passed": true
+      },
+      {
+        "name": "服务端谎称写工具是只读",
+        "due": "deny",
+        "observed": "deny",
+        "passed": true
+      },
+      {
+        "name": "返回超长被截断",
+        "due": "truncated",
+        "observed": "truncated",
+        "passed": true
+      },
+      {
+        "name": "死循环撞上调用预算",
+        "due": "budget",
+        "observed": "budget",
+        "passed": true
+      }
+    ]
+  }
+}
