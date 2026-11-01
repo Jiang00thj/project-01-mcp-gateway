@@ -1,6 +1,6 @@
 # 接入真实 MCP 客户端
 
-本地单测全绿不代表客户端能用。这个文件记录三条接入路径，以及真正接进去之后才暴露的两个 bug。
+本地单测全绿不代表客户端能用。这个文件记录四条接入路径，以及真正接进去之后才暴露的两个 bug。
 
 截图在 `docs/screenshots/`，全部是 MCP Inspector 2.13.0 连接本仓库 `campus` server 的实拍。
 
@@ -102,6 +102,17 @@ python clients/install_clients.py --claude
 
 Claude 会弹出工具调用确认框，显示 `search_courses` 和参数——**那张确认框截图是简历里最有说服力的一张**，因为它同时证明了：工具被发现、参数被正确生成、写操作会征求用户同意。
 
+### 实测结论（2026-11，本机）
+
+安装与配置全部成功：0.14.10 安装包签名有效，配置写入 `%APPDATA%\Claude\claude_desktop_config.json`（注意数据目录在 Roaming，`%LOCALAPPDATA%\Claude` 下那个 0 字节的历史残留文件不是它读的），server 端裸探针验证正常。但启动后停在 **"App unavailable in region"**——Anthropic 对中国大陆的官方区域限制，请求根本到不了登录流程，MCP 也就不会加载。
+
+两个教训值得记：
+
+1. **"客户端装好了"和"客户端可用"之间隔着账号与地区政策**。MCP server 完全符合规范也没用，客户端主流程走不到 MCP 那一步。
+2. 判断"是谁没连上"要看日志分层：main.log 里的 `Unexpected token '<', "<!DOCTYPE "...` 是后端返回了 HTML 错误页，不是我们的配置坏了。先分层定位，再动手改。
+
+配置文件保留——将来在受支持地区登录后即可直接生效，四个 server 不需要重装。
+
 ---
 
 ## 3. Cursor
@@ -116,7 +127,37 @@ python clients/install_clients.py --cursor    # 写 .cursor/mcp.json（项目级
 
 ---
 
-## 4. 接入后才暴露的两个 bug
+## 4. Cline（Claude Desktop 的替代路径）
+
+Claude Desktop 被区域限制挡住后，工具调用确认框这张关键截图换 Cline 拿：它是 VS Code / Cursor 扩展（`saoudrizwan.claude-dev`），本身就是 MCP 原生客户端，支持任意 OpenAI 兼容端点——配 DeepSeek 正好复用已有的 API key，账号零门槛。
+
+```bash
+# 扩展（Cursor 或 VS Code 均可）
+cursor --install-extension saoudrizwan.claude-dev
+
+# 写入 MCP 配置（自动探测已装的宿主，VS Code / Cursor / VSCodium 都会写）
+python clients/install_clients.py --cline
+```
+
+配置写到 `<宿主>\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`，比 `.cursor/mcp.json` 多三个字段：
+
+```json
+{
+  "command": "C:\\...\\python.exe",
+  "args": ["C:\\...\\mcp_launch.py", "campus"],
+  "disabled": false,
+  "autoApprove": [],
+  "timeout": 60
+}
+```
+
+`autoApprove` 刻意留空：每个工具调用都走 Cline 的审批对话框。这和网关"写操作必须过审批门"是同一个姿态——**客户端审批 UI 与服务端权限策略叠成双保险**，而且让确认框截图可复现，不是碰运气截到的一次性画面。
+
+剩余手动步骤只有一步：Cline 的 provider 选择存在扩展的 globalState（SQLite）里，不能预写文件，需要在面板里选 DeepSeek、填一次 key。
+
+---
+
+## 5. 接入后才暴露的两个 bug
 
 这两个都是**本地自研客户端测不出来**的：我们的 `gateway/client.py` 和真实客户端在编码、类型宽容度上的假设不一样。
 
@@ -165,7 +206,7 @@ arguments = self._coerce_scalars(tool.input_schema, arguments)   # 调用前
 
 ---
 
-## 5. 面试怎么讲这一段
+## 6. 面试怎么讲这一段
 
 > 我自己写的客户端和 45 个单测都通过了，但接 MCP Inspector 时中文查询全部失败，界面只显示 Internal error。翻客户端 Console 才看到真正的堆栈是 UnicodeEncodeError——stdin 在 Windows 上按 cp936 解码，UTF-8 的中文字节变成孤立代理字符，`json.loads` 接受了，一路带到 SQLite 才报错。
 >
